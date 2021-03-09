@@ -48,10 +48,10 @@ impl Clone for Client {
 }
 
 impl Client {
-    pub async fn from_string(credentials_string: String) -> Result<Self, error::Error> {
+    pub async fn from_string<T>(credentials_string: T) -> Result<Self, error::Error> where T: Into<String> {
         let mut client = Client(Arc::new(RwLock::new(State {
             token: None,
-            credentials_string,
+            credentials_string: credentials_string.into(),
             project: None,
             hyper_client: setup_hyper(),
             running: Arc::new(AtomicBool::new(true)),
@@ -63,31 +63,31 @@ impl Client {
         }
     }
 
-    pub async fn new(credentials_path: String) -> Result<Self, error::Error> {
-        let credentials_string = fs::read_to_string(credentials_path).unwrap();
+    pub async fn new<T>(credentials_path: T) -> Result<Self, error::Error> where T: Into<String> {
+        let credentials_string = fs::read_to_string(credentials_path.into())?;
         Self::from_string(credentials_string).await
     }
 
-    pub fn subscribe(&self, name: String) -> Subscription {
+    pub fn subscribe<T>(&self, name: T) -> Subscription where T: Into<String> {
         Subscription {
             client: Some(self.clone()),
-            name: format!("projects/{}/subscriptions/{}", self.project(), name),
+            name: format!("projects/{}/subscriptions/{}", self.project(), name.into()),
             topic: None,
         }
     }
 
-    pub fn set_project(&mut self, project: String) {
-        self.0.write().unwrap().project = Some(project);
+    pub fn set_project<T>(&mut self, project: T) where T: Into<String> {
+        self.0.write().unwrap().project = Some(project.into());
     }
 
     pub fn project(&self) -> String {
         self.0.read().unwrap().project().to_string()
     }
 
-    pub fn topic(&self, name: String) -> Topic {
+    pub fn topic<T>(&self, name: T) -> Topic where T: Into<String> {
         Topic {
             client: Some(Client(self.0.clone())),
-            name: format!("projects/{}/topics/{}", self.project(), name),
+            name: format!("projects/{}/topics/{}", self.project(), name.into()),
         }
     }
 
@@ -105,11 +105,10 @@ impl Client {
 
     pub fn spawn_token_renew(&self, interval: Duration) {
         let mut client = self.clone();
-        let c = self.clone();
         let renew_token_task = async move {
             let mut int = time::interval(interval);
             loop {
-                if c.is_running() {
+                if client.is_running() {
                     int.tick().await;
                     debug!("Renewing pubsub token");
                     if let Err(e) = client.refresh_token().await {

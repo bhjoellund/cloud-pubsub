@@ -23,7 +23,7 @@ async fn main() {
     };
 
     let topic = Arc::new(pubsub.topic(config.topic.clone()));
-    match topic.clone().publish("🔥").await {
+    match topic.as_ref().publish("🔥").await {
         Ok(response) => {
             println!("{:?}", response);
             pubsub.stop();

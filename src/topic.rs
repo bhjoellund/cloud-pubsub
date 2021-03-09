@@ -38,7 +38,7 @@ pub struct PublishMessageRequest {
 
 impl Topic {
     pub async fn subscribe(&self) -> Result<Subscription, error::Error> {
-        let client = self.client.clone();
+        let client = self.client.as_ref();
 
         let new_subscription = Subscription {
             name: self.new_subscription_name(),
@@ -54,7 +54,7 @@ impl Topic {
             .perform_request::<Subscription, Subscription>(uri, Method::PUT, new_subscription)
             .await?;
 
-        sub.client = client.clone();
+        sub.client = client.cloned();
         Ok(sub)
     }
 
@@ -87,7 +87,7 @@ impl Topic {
     ) -> Result<U, error::Error> {
         let client = self
             .client
-            .clone()
+            .as_ref()
             .expect("Topic must be created using a client");
 
         let json = serde_json::to_string(&data).expect("Failed to serialize request body.");
@@ -120,7 +120,7 @@ impl Topic {
     }
 
     fn new_subscription_name(&self) -> String {
-        let project = self.client.clone().unwrap().project();
+        let project = self.client.as_ref().map(|c| c.project()).unwrap();
         let slug = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
